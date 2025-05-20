@@ -94,5 +94,42 @@ def predict_api():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+import base64
+
+@app.route('/predict-base64', methods=['POST'])
+def predict_base64():
+    try:
+        data = request.get_json()
+        if 'image' not in data:
+            return jsonify({'error': 'No image data found'}), 400
+
+        image_data = data['image']
+        image_bytes = base64.b64decode(image_data)
+        image = Image.open(io.BytesIO(image_bytes)).convert('RGB').resize((128, 128))
+        image_array = np.array(image).astype('float32') / 255.0
+        image_array = np.expand_dims(image_array, axis=0)
+
+        # Prediksi menggunakan model
+        pred = model.predict(image_array)[0][0]  # hasil float32
+
+        # Ubah ke float native Python agar bisa di-serialize
+        pred = float(pred)
+
+        if pred >= 0.5:
+            predicted_class = "Sehat"
+            confidence = pred
+        else:
+            predicted_class = "Mastitis"
+            confidence = 1 - pred
+
+        return jsonify({
+            'predicted_class': predicted_class,
+            'confidence': round(float(confidence), 4)  # pastikan confidence juga float
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
